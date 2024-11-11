@@ -2,6 +2,7 @@ package com.sauliyo15.autenticacion.filter;
 
 import com.sauliyo15.autenticacion.service.impl.JwtService;
 import com.sauliyo15.autenticacion.service.impl.UserServiceImpl;
+import com.sauliyo15.autenticacion.util.SecurityUtils;
 import io.micrometer.common.util.StringUtils;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -34,17 +35,33 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         final String jwt;
         final String userEmail;
 
-        if(StringUtils.isEmpty(authHeader)) {
+        // Verifica si el encabezado Authorization está presente
+        if (StringUtils.isEmpty(authHeader)) {
             filterChain.doFilter(request, response);
             return;
         }
+
+        // Extrae el JWT del encabezado "Authorization"
         jwt = authHeader.substring(7); // Bearer XXXX
         log.info("JWT -> {}", jwt);
         userEmail = jwtService.extractUserName(jwt);
+
         if (!StringUtils.isEmpty(userEmail) && SecurityContextHolder.getContext().getAuthentication() == null) {
             UserDetails userDetails = userService.userDetailsService().loadUserByUsername(userEmail);
+
             if (jwtService.isTokenValid(jwt, userDetails)) {
                 log.debug("User - {}", userDetails);
+
+                // Usamos SecurityUtils para obtener el usuario autenticado
+                UserDetails authenticatedUser = SecurityUtils.getAuthenticatedUser();
+
+                if (authenticatedUser == null) {
+                    log.warn("Usuario no autenticado.");
+                    filterChain.doFilter(request, response);
+                    return;
+                }
+
+                // Si el JWT es válido, creamos la autenticación
                 SecurityContext context = SecurityContextHolder.createEmptyContext();
                 UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
                         userDetails, null, userDetails.getAuthorities()
@@ -54,6 +71,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 SecurityContextHolder.setContext(context);
             }
         }
+        // Continúa el procesamiento de la solicitud
         filterChain.doFilter(request, response);
     }
 }

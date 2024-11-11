@@ -5,6 +5,7 @@ import com.sauliyo15.autenticacion.dto.LoginRequest;
 import com.sauliyo15.autenticacion.dto.SingUpRequest;
 import com.sauliyo15.autenticacion.entities.UserEntity;
 import com.sauliyo15.autenticacion.repository.UserRepository;
+import com.sauliyo15.autenticacion.util.SecurityUtils;
 import lombok.RequiredArgsConstructor;
 import org.apache.coyote.BadRequestException;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -23,6 +24,12 @@ public class AuthenticationService {
     private final AuthenticationManager authenticationManager;
 
     public JwtResponse signup(SingUpRequest request) throws BadRequestException {
+
+        // Verificación del email existente
+        if (userRepository.findByEmail(request.getEmail()).isPresent()) {
+            throw new BadRequestException("El email ya está registrado.");
+        }
+
         var user = UserEntity
                 .builder()
                 .name(request.getName())
@@ -37,11 +44,26 @@ public class AuthenticationService {
     }
 
     public JwtResponse login(LoginRequest request) {
+
+        // Verificar si ya está autenticado antes de permitir login
+        if (SecurityUtils.getAuthenticatedUser() != null) {
+            throw new IllegalStateException("Ya estás autenticado");
+        }
+        
+        // Verificar si el usuario existe
+        var user = userRepository.findByEmail(request.getEmail())
+                .orElseThrow(() -> new IllegalArgumentException("Usuario no encontrado"));
+
+        // Verificar si la contraseña es correcta
+        if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
+            throw new IllegalArgumentException("Contraseña incorrecta");
+        }
+
+        // Autenticación exitosa
         authenticationManager.authenticate(
                 new UsernamePasswordAuthenticationToken(request.getEmail(), request.getPassword())
         );
-        var user = userRepository.findByEmail(request.getEmail())
-                .orElseThrow(() -> new IllegalArgumentException("Invalid email or password."));
+
         var jwt = jwtService.generateToken(user);
         return JwtResponse.builder().token(jwt).build();
     }
