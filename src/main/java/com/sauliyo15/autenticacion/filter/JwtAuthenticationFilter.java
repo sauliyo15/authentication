@@ -35,9 +35,9 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         final String jwt;
         final String userEmail;
 
-        // Verifica si el encabezado Authorization está presente
-        if (StringUtils.isEmpty(authHeader)) {
-            filterChain.doFilter(request, response);
+        // Verifica si el encabezado Authorization está presente y contiene el prefijo "Bearer "
+        if (StringUtils.isEmpty(authHeader) || !authHeader.startsWith("Bearer ")) {
+            filterChain.doFilter(request, response); // Continuar sin hacer nada si no es un token JWT válido
             return;
         }
 

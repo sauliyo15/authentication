@@ -49,7 +49,7 @@ public class AuthenticationService {
         if (SecurityUtils.getAuthenticatedUser() != null) {
             throw new IllegalStateException("Ya estás autenticado");
         }
-        
+
         // Verificar si el usuario existe
         var user = userRepository.findByEmail(request.getEmail())
                 .orElseThrow(() -> new IllegalArgumentException("Usuario no encontrado"));
